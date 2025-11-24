@@ -20,7 +20,7 @@ class CharDataset(Dataset):
         return len(self.stoi)
 
     def __len__(self):
-        return len(self.data)
+        return len(self.data) - self.block_size
 
     def __getitem__(self, idx):
         # grab a chunk of (block_size + 1) characters from the data
@@ -28,7 +28,7 @@ class CharDataset(Dataset):
         # encode every character to an integer
         encoded_chunk = [self.stoi[c] for c in chunk]
         # return the chunk and the shifted version as tensors
-        return torch.tensor(encoded_chunk[1:]), torch.tensor(encoded_chunk[:-1])
+        return torch.tensor(encoded_chunk[:-1]), torch.tensor(encoded_chunk[1:])
 
     def decode(self, indices):
         return ''.join([self.itos[i] for i in indices])
