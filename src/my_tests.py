@@ -7,9 +7,11 @@ import torch
 # Add src directory to path
 sys.path.insert(0, str(Path(__file__).parent))
 
+from my_ffn import FeedForward
 from my_head import Head
 from my_multihead import MultiHead
 from my_tokenizer import CharDataset
+from my_transformerblock import TransformerBlock
 
 
 def test_tokenizer_roundtrip(block_size=4):
@@ -70,11 +72,16 @@ def test_single_attention_head():
     x2 = torch.randn(batch_size, seq_len, embed_dim)
     output2 = head(x2)
     assert not torch.allclose(output, output2), "Output doesn't depend on input"
-
-    # Test 4: Causal masking works (manual check)
-    # Position 0 should only attend to itself
-    # Position 5 should only attend to positions 0-5
-    print("Single attention head works")
+    
+    x_future_modified = x.clone()
+    x_future_modified[:, 4:, :] = torch.randn(batch_size, seq_len - 4, embed_dim)
+    output_future_modified = head(x_future_modified)
+    
+    assert torch.allclose(output[:, 0, :], output_future_modified[:, 0, :], atol=1e-5), "Causal masking broken: position 0 affected by future"
+    assert torch.allclose(output[:, 3, :], output_future_modified[:, 3, :], atol=1e-5), "Causal masking broken: position 3 affected by future"
+    print("Causal masking verified")
+    
+    print("Single attention head works\n")
 
 def test_multi_attention_head():
     head_size = 16
@@ -95,8 +102,88 @@ def test_multi_attention_head():
 
     # Test 1: Shape
     assert output.shape == x.shape, "Shape mismatch"
+    print(f"Shape preserved: {x.shape} to {output.shape}")
+    
+    # Test 2: No NaN
+    assert not torch.isnan(output).any(), "NaN values"
+    print("No NaN values")
+
+    # Test 3: Output depends on input
+    x2 = torch.randn(batch_size, seq_len, embed_dim)
+    output2 = multi_head(x2)
+    assert not torch.allclose(output, output2), "Output doesn't depend on input"
+    print("Output changes with different input")
+    
+    # Test 4: Projection layer dimensions
+    assert multi_head.proj.in_features == head_size * num_heads, "Projection input wrong"
+    assert multi_head.proj.out_features == embed_dim, "Projection output wrong"
+    print(f"Projection: {head_size * num_heads} to {embed_dim}")
+    
+    # Test 5: Causal masking (future doesn't affect past)
+    x_future_modified = x.clone()
+    x_future_modified[:, 4:, :] = torch.randn(batch_size, seq_len - 4, embed_dim)
+    output_future_modified = multi_head(x_future_modified)
+    assert torch.allclose(output[:, 0, :], output_future_modified[:, 0, :], atol=1e-5), "Causal masking broken: position 0 affected by future"
+    print("Causal masking verified")
+
+    print("Multi-head attention works!\n")
+    
+def test_ffn():
+    print("Testing Feed-Forward Network...")
+
+    # Create dummy input
+    batch_size, seq_len, embed_dim = 4, 8, 32
+    x = torch.randn(batch_size, seq_len, embed_dim)
+    ffn = FeedForward(n_embd=embed_dim, dropout=0.0)
+    output = ffn(x)
+
+    # Test 1: Shape preservation
+    assert output.shape == x.shape, "Shape mismatch"
+    print(f"Shape preserved: {x.shape} to {output.shape}")
 
     # Test 2: No NaN
     assert not torch.isnan(output).any(), "NaN values"
+    print("No NaN values")
 
-    print("Multi-head attention works")
+    # Test 3: Output depends on input
+    x2 = torch.randn(batch_size, seq_len, embed_dim)
+    output2 = ffn(x2)
+    assert not torch.allclose(output, output2), "Output doesn't depend on input"
+    print("Output changes with different input")
+
+    # Test 4: Verify 4x expansion structure
+    assert ffn.ffn[0].out_features == 4 * embed_dim, "Should expand to 4x"
+    assert ffn.ffn[2].out_features == embed_dim, "Should compress back"
+    print(f"Internal structure: {embed_dim} to {4*embed_dim} to {embed_dim}")
+
+    # Test 5: Position-wise independence
+    x_modified = x.clone()
+    x_modified[:, 0, :] = torch.randn(batch_size, embed_dim)
+    output_modified = ffn(x_modified)
+    assert torch.allclose(output[:, 1:, :], output_modified[:, 1:, :]), "FFN should be position-wise independent"
+    print("Position-wise independence verified")
+
+    print("Feed-forward network works!\n")
+    
+def test_transformer_block():
+    print("Testing Transformer Block...")
+
+    batch_size, seq_len, embed_dim = 4, 8, 32
+    x = torch.randn(batch_size, seq_len, embed_dim)
+    block = TransformerBlock(n_embd=32, num_heads=4, block_size=128, dropout=0.0)
+    output = block(x)
+
+    # Test 1: Shape preservation
+    assert output.shape == x.shape, "Shape mismatch"
+    print(f"Shape preserved: {x.shape} to {output.shape}")
+    
+    # Test 2: No NaN
+    assert not torch.isnan(output).any(), "NaN values"
+    print("No NaN values")
+
+    # Test 3: Stacking blocks
+    block2 = TransformerBlock(n_embd=32, num_heads=4, block_size=128, dropout=0.0)
+    output2 = block2(output)
+    assert output2.shape == x.shape, "Can't stack blocks!"
+
+    print("Transformer block works")
