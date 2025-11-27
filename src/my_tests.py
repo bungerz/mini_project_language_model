@@ -8,6 +8,7 @@ import torch
 sys.path.insert(0, str(Path(__file__).parent))
 
 from my_head import Head
+from my_multihead import MultiHead
 from my_tokenizer import CharDataset
 
 
@@ -38,21 +39,23 @@ def test_tokenizer_roundtrip(block_size=4):
     print(f"Target: {y}")
 
     # Decode to verify
-    print(f"Input text:  '{dataset.itos[x[0].item()]}{dataset.itos[x[1].item()]}{dataset.itos[x[2].item()]}{dataset.itos[x[3].item()]}'")
-    print(f"Target text: '{dataset.itos[y[0].item()]}{dataset.itos[y[1].item()]}{dataset.itos[y[2].item()]}{dataset.itos[y[3].item()]}'")
+    input_text = ''.join([dataset.itos[idx.item()] for idx in x])
+    target_text = ''.join([dataset.itos[idx.item()] for idx in y])
+    print(f"Input text:  '{input_text}'")
+    print(f"Target text: '{target_text}'")
     
     print("Test passed!")
 
 def test_single_attention_head():
-    # TEST: Single Attention Head
-    print("Testing single attention Head")
+    head_size = 16
+    print(f"Testing single attention Head with head size {head_size}")
 
     # Create dummy input
     batch_size, seq_len, embed_dim = 4, 8, 64
     x = torch.randn(batch_size, seq_len, embed_dim)
 
     # Create attention head
-    head = Head(head_size=16, n_embd=embed_dim, block_size=128, dropout=0.0)
+    head = Head(head_size=head_size, n_embd=embed_dim, block_size=128, dropout=0.0)
     output = head(x)
 
     # Test 1: Shape
@@ -72,3 +75,28 @@ def test_single_attention_head():
     # Position 0 should only attend to itself
     # Position 5 should only attend to positions 0-5
     print("Single attention head works")
+
+def test_multi_attention_head():
+    head_size = 16
+    block_size = 128
+    dropout = 0.0
+    num_heads = 4
+    # TEST: Multi-Head Attention
+    print(f"Testing Multi-Head Attention with head size {head_size} and num heads {num_heads}")
+
+    # Create dummy input
+    batch_size, seq_len, embed_dim = 4, 8, 64
+    x = torch.randn(batch_size, seq_len, embed_dim)
+
+    # Create multi-head attention
+    multi_head = MultiHead(num_heads, head_size=head_size, n_embd=embed_dim, 
+                                    block_size=block_size, dropout=dropout)
+    output = multi_head(x)
+
+    # Test 1: Shape
+    assert output.shape == x.shape, "Shape mismatch"
+
+    # Test 2: No NaN
+    assert not torch.isnan(output).any(), "NaN values"
+
+    print("Multi-head attention works")

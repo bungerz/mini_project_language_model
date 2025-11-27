@@ -30,9 +30,9 @@ class Head(nn.Module):
     def forward(self, x: torch.Tensor):
         """
         Args:
-            x: Input tensor of shape (batch_size, time (seq length), channels (embedding dimension))
+            x: Input tensor of shape (Batch_size, Time (block_size), Channels (n_embd:embedding dimension))
         Returns:
-            Output tensor of shape (batch_size, time (seq length), head_size)
+            Output tensor of shape (Batch_size, Time (block_size), head_size)
         """
         
         B, T, C = x.shape
@@ -42,19 +42,19 @@ class Head(nn.Module):
         q = self.query(x)
         v = self.value(x)
         
-        # 2. Compute attention scores (Attention(Q, K, V) = softmax(QK / sqrt(d_k)) V)
-        # 2.0 inside parenthesis
-        # both q and k are initially  (B, T, head_size), we transpose k to be in the shape of (B, head_size, T)
-        att = (q @ k.permute(0, 2, 1)) / (sqrt(self.head_size)) # new shape : (B, T (seq len), T (seq len))
+        # 2.0 Compute attention scores QK^T / sqrt(d_k)
+        # q: (B, T, head_size), k.permute: (B, head_size, T) gives att: (B, T, T)
+        att = (q @ k.permute(0, 2, 1)) / (sqrt(self.head_size))
         
-        # 2.1 causal Mask
+        # 2.1 causal Mask, we dont look at future tokens
         att = att.masked_fill(self.tril[:T,:T] == 0, float('-inf'))
         
         #2.2 apply softmax to turn result unto probabilities
+        # # dim=-1 normalizes across the key dimension, so each query position's attention weights sum to 1
         att = nn.functional.softmax(att, dim=-1)
         
         # 2.3 apply dropout
         att = self.dropout(att)
         
-        # 2.4 multiply by values        
+        # 2.4  attention weights to values: (B, T, T) @ (B, T, head_size) gives (B, T, head_size)
         return att @ v
