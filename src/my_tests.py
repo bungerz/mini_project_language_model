@@ -8,6 +8,7 @@ import torch
 sys.path.insert(0, str(Path(__file__).parent))
 
 from my_ffn import FeedForward
+from my_gpt import SmolGPT
 from my_head import Head
 from my_multihead import MultiHead
 from my_tokenizer import CharDataset
@@ -187,3 +188,51 @@ def test_transformer_block():
     assert output2.shape == x.shape, "Can't stack blocks!"
 
     print("Transformer block works")
+
+def test_full_model():
+        # TEST: Full Model
+    print("Testing Full GPT Model...")
+
+    # Create model
+    vocab_size = 65
+    model = SmolGPT(
+        vocab_size=vocab_size, 
+        n_embd=32, 
+        block_size=128,
+        num_head=4, 
+        num_layers=2, 
+        dropout=0.0
+    )
+
+    # Test 1: Forward pass
+    dummy_input = torch.randint(0, vocab_size, (2, 10))  # (batch=2, time=10)
+    dummy_target = torch.randint(0, vocab_size, (2, 10))
+
+    logits, loss = model(dummy_input, dummy_target)
+
+    print(f"Input shape:  {dummy_input.shape}")
+    print(f"Logits shape: {logits.shape}")
+    print(f"Loss value:   {loss.item():.4f}")
+
+    # Should be (batch=2, time=10, vocab_size=65)
+    assert logits.shape == (2, 10, vocab_size), "Logits shape wrong"
+    print("Logits shape OK")
+    
+    # Random init loss should be ~log(vocab_size) = log(65) ≈ 4.17
+    assert 3.5 < loss.item() < 5.0, f"Loss {loss.item():.2f} seems wrong for random init"
+    print(f"Loss {loss.item():.2f} = log(65) ≈ 4.17 is good")
+    
+    # Test 2: No NaN
+    assert not torch.isnan(logits).any(), "NaN in logits"
+    assert not torch.isnan(loss), "NaN loss"
+    print("No NaN")
+    
+    # Test 3: Generation
+    start_tokens = torch.randint(0, vocab_size, (1, 1))
+    generated = model.generate(start_tokens, n_new_tokens=20)
+    assert generated.shape == (1, 21), "Generation shape wrong"
+    assert all(0 <= t < vocab_size for t in generated[0].tolist()), "Invalid tokens"
+    print("Generation OK")
+    
+    print(f"Model has {sum(p.numel() for p in model.parameters()):,} parameters")
+    print("Full model works\n")
