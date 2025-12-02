@@ -30,5 +30,8 @@ class CharDataset(Dataset):
         # return the chunk and the shifted version as tensors
         return torch.tensor(encoded_chunk[:-1]), torch.tensor(encoded_chunk[1:])
 
+    def encode(self, string):
+        return [self.stoi[s] for s in string]
+
     def decode(self, indices):
         return ''.join([self.itos[i] for i in indices])

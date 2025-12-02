@@ -23,7 +23,7 @@ def test_tokenizer_roundtrip(block_size=4):
     dataset = CharDataset(test_text, block_size=block_size)
     
     # Test encode/decode
-    encoded = [dataset.stoi[c] for c in test_text]
+    encoded = dataset.encode(test_text)
     decoded = dataset.decode(encoded)
     
     print(f"Original:  {test_text}")
@@ -65,19 +65,21 @@ def test_single_attention_head():
     print(f"Input shape:  {x.shape}")
     print(f"Output shape: {output.shape}")
     assert output.shape == (batch_size, seq_len, 16), "Output head_size should be 16"
-
+    print(f"Shape preserved: {x.shape} to {output.shape}")
+    
     # Test 2: No NaN values
     assert not torch.isnan(output).any(), "NaN values in output"
+    print("No NaN values")
 
     # Test 3: Output changes with different input
     x2 = torch.randn(batch_size, seq_len, embed_dim)
     output2 = head(x2)
     assert not torch.allclose(output, output2), "Output doesn't depend on input"
+    print("Output changes with different input")
     
     x_future_modified = x.clone()
     x_future_modified[:, 4:, :] = torch.randn(batch_size, seq_len - 4, embed_dim)
     output_future_modified = head(x_future_modified)
-    
     assert torch.allclose(output[:, 0, :], output_future_modified[:, 0, :], atol=1e-5), "Causal masking broken: position 0 affected by future"
     assert torch.allclose(output[:, 3, :], output_future_modified[:, 3, :], atol=1e-5), "Causal masking broken: position 3 affected by future"
     print("Causal masking verified")
@@ -190,7 +192,6 @@ def test_transformer_block():
     print("Transformer block works")
 
 def test_full_model():
-        # TEST: Full Model
     print("Testing Full GPT Model...")
 
     # Create model
