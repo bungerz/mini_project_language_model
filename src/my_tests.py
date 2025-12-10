@@ -230,7 +230,7 @@ def test_full_model():
     
     # Test 3: Generation
     start_tokens = torch.randint(0, vocab_size, (1, 1))
-    generated = model.generate(start_tokens, n_new_tokens=20)
+    generated = model.generate(start_tokens, n_new_tokens=20,temperature=1.0)
     assert generated.shape == (1, 21), "Generation shape wrong"
     assert all(0 <= t < vocab_size for t in generated[0].tolist()), "Invalid tokens"
     print("Generation OK")

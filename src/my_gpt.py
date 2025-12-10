@@ -26,7 +26,6 @@ class SmolGPT(nn.Module):
         self.token_embeddings = nn.Embedding(vocab_size, n_embd)
         #2. Position Embeddings (from block_size to n_embd)
         #"We also experimented with using learned positional embeddings [9] instead, and found that the two versions produced nearly identical results"
-        # TODO: Replace with "sine and cosine functions of different frequencies"
         self.position_embeddings = nn.Embedding(block_size, n_embd)
         
         #4. N layers of Transformers blocks
@@ -68,13 +67,13 @@ class SmolGPT(nn.Module):
             loss = None
         else:
             B, T, C = logits.shape
+            
             loss = nn.functional.cross_entropy(logits.view(B*T, C), targets.view(B*T))
     
         return logits, loss
     
     # for inference
-    def generate(self,idx, n_new_tokens):
-        #TODO: add temperature
+    def generate(self,idx, n_new_tokens, temperature):
         """
         Generate new tokens autoregressively
         
@@ -84,6 +83,10 @@ class SmolGPT(nn.Module):
             temperature: sampling temperature (higher = more random)
         Returns:
             Generated sequence of shape (batch, time + n_new_tokens)"""
+            
+        if temperature <= 0:
+            raise ValueError(f"Temperature must be > 0, got {temperature}")
+    
         for _ in range(n_new_tokens):
             #1. get predictions for all positions (batch, seq_len, vocab_size)
             #1.1 crop to block_size if sequence too long
@@ -92,6 +95,10 @@ class SmolGPT(nn.Module):
             
             #2. we only want the last logits seq_len wise (batch, vocab_size)
             logits = logits[:,-1,:]
+            
+            #2.1 we add the temperature
+            ## temperature < 1.0: sharper distribution, else flatter, if temp close to 0 then it acts as argmax
+            logits = logits / temperature
             
             #3. we SAMPLE the next token
             proba = nn.functional.softmax(logits, dim=-1)

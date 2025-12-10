@@ -46,11 +46,11 @@ class Head(nn.Module):
         # q: (B, T, head_size), k.permute: (B, head_size, T) gives att: (B, T, T)
         att = (q @ k.permute(0, 2, 1)) / (sqrt(self.head_size))
         
-        # 2.1 causal Mask, we dont look at future tokens
+        # 2.1 causal Mask, we dont look at future tokens: softmax(-inf) = 0
         att = att.masked_fill(self.tril[:T,:T] == 0, float('-inf'))
         
         #2.2 apply softmax to turn result unto probabilities
-        # # dim=-1 normalizes across the key dimension, so each query position's attention weights sum to 1
+        # # dim=-1 normalizes across the key dimension, so each query position's attention weights sum to 1  (dim-2 being the query dimension)
         att = nn.functional.softmax(att, dim=-1)
         
         # 2.3 apply dropout
