@@ -56,5 +56,5 @@ class Head(nn.Module):
         # 2.3 apply dropout
         att = self.dropout(att)
         
-        # 2.4  attention weights to values: (B, T, T) @ (B, T, head_size) gives (B, T, head_size)
+        # 2.4  attention weights to values: (B, T, T) @ (B, T, head_size) comes back to (B, T, head_size)
         return att @ v

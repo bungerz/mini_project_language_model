@@ -33,9 +33,9 @@ class SmolGPT(nn.Module):
         self.blocks = nn.Sequential(
             * [TransformerBlock(num_head,n_embd,block_size,dropout) for _ in range(num_layers)]
         )
-        #5. Layer Norm
+        #5. Layer Norm (first 2 dimensions are broadcasted)
         self.ln = nn.LayerNorm(n_embd)
-        #6. From embedding back to vocabulary (n_embd to vocab_size)
+        #6. From embedding back to vocabulary (n_embd to vocab_size) (first 2 dimensions are broadcasted)
         self.head = nn.Linear(n_embd, vocab_size)
         
     # for training
@@ -67,8 +67,8 @@ class SmolGPT(nn.Module):
             loss = None
         else:
             B, T, C = logits.shape
-            
-            loss = nn.functional.cross_entropy(logits.view(B*T, C), targets.view(B*T))
+            # we reshape the tensor to end up with 2 dimensions, as it's waited by cross_entropy
+            loss = nn.functional.cross_entropy(logits.view(B*T, C), targets.view(B*T)) # we could put logits.view(-1,C) pytorch would infer B*T here
     
         return logits, loss
     
