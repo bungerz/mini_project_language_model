@@ -93,7 +93,7 @@ class SmolGPT(nn.Module):
             idx_cond = idx if idx.size(1) <= self.block_size else idx[:, -self.block_size:]
             logits, _ = self(idx_cond)
             
-            #2. we only want the last logits seq_len wise (batch, vocab_size)
+            #2. we only want the last logit seq_len wise (batch, vocab_size)
             logits = logits[:,-1,:]
             
             #2.1 we add the temperature
